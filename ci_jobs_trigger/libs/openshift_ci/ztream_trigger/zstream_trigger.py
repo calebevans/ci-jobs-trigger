@@ -1,11 +1,11 @@
 import json
 import time
 
-import requests
 from ocp_utilities.cluster_versions import get_accepted_cluster_versions
 from semver import Version
 
 from ci_jobs_trigger.utils.general import get_config, send_slack_message
+from ci_jobs_trigger.libs.openshift_ci.utils.openshift_ci import trigger_job
 
 OPENSHIFT_CI_ZSTREAM_TRIGGER_CONFIG_OS_ENV_STR = "OPENSHIFT_CI_ZSTREAM_TRIGGER_CONFIG"
 
@@ -37,13 +37,9 @@ def already_processed_version(base_version, version, processed_versions_file_pat
 def trigger_jobs(config, jobs, logger):
     failed_triggers_jobs = []
     successful_triggers_jobs = []
-    trigger_url = config["trigger_url"]
     for job in jobs:
-        res = requests.post(
-            url=f"{trigger_url}/{job}",
-            headers={"Authorization": f"Bearer {config['trigger_token']}"},
-            data='{"job_execution_type": "1"}',
-        )
+        res = trigger_job(job_name=job, trigger_token=config["trigger_token"])
+
         if res.ok:
             successful_triggers_jobs.append(job)
         else:
@@ -63,7 +59,9 @@ def trigger_jobs(config, jobs, logger):
 
 
 def process_and_trigger_jobs(logger, version=None, config_dict=None):
-    config = get_config(os_environ=OPENSHIFT_CI_ZSTREAM_TRIGGER_CONFIG_OS_ENV_STR, config_dict=config_dict)
+    config = get_config(
+        os_environ=OPENSHIFT_CI_ZSTREAM_TRIGGER_CONFIG_OS_ENV_STR, logger=logger, config_dict=config_dict
+    )
     if not config:
         return False
 
@@ -103,8 +101,10 @@ def process_and_trigger_jobs(logger, version=None, config_dict=None):
 def monitor_and_trigger(logger):
     while True:
         try:
+            sleep_interval = 60 * 60 * 24  # 1 day
             process_and_trigger_jobs(logger=logger)
-            time.sleep(60 * 60 * 24)  # 1 day
+            logger.info(f"Sleeping for {int(sleep_interval / 3600)} hours")
+            time.sleep(sleep_interval)
 
         except Exception as ex:
             logger.warnning(f"Error: {ex}")
