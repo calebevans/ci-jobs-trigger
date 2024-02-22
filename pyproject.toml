@@ -1,3 +1,14 @@
+[tool.coverage.run]
+omit = ["tests/*"]
+source = ["ci_jobs_trigger"]
+
+[tool.coverage.report]
+fail_under = 40
+
+[tool.coverage.html]
+directory = "_tests_coverage"
+
+
 [tool.ruff]
 preview = true
 line-length = 120
@@ -29,6 +40,12 @@ python-simple-logger = "^1.0.12"
 [tool.poetry.group.dev.dependencies]
 ipdb = "^0.13.13"
 ipython = "*"
+
+
+[tool.poetry.group.tests.dependencies]
+pytest = "^8.0.1"
+pytest-cov = "^4.1.0"
+pytest-mock = "^3.12.0"
 
 [tool.poetry-dynamic-versioning]
 enable = true
