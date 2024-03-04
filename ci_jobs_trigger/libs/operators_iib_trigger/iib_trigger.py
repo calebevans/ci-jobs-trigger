@@ -46,15 +46,15 @@ def get_operator_data_from_url(operator_name, ocp_version, logger):
             yield _index
 
 
-def get_new_iib(operator_config_data, logger):
+def get_new_iib(config_data, logger):
     new_trigger_data = False
     data_from_file = read_data_file()
     new_data = copy.deepcopy(data_from_file)
-    ci_jobs = operator_config_data.get("ci_jobs", {})
+    ci_jobs = config_data.get("ci_jobs", {})
 
     for _ocp_version, _jobs_data in ci_jobs.items():
         if _jobs_data:
-            for _ci_job in [*_jobs_data["jobs"]]:
+            for _ci_job in _jobs_data:
                 job_name = _ci_job["name"]
                 job_products = _ci_job["products"]
                 new_data.setdefault(_ocp_version, {}).setdefault(job_name, {})
@@ -145,7 +145,7 @@ def fetch_update_iib_and_trigger_jobs(logger, config_dict=None):
     token = config_data["github_token"]
     repo_url = f"https://{token}@github.com/RedHatQE/ci-jobs-trigger.git"
     clone_repo(repo_url=repo_url)
-    trigger_dict = get_new_iib(operator_config_data=config_data, logger=logger)
+    trigger_dict = get_new_iib(config_data=config_data, logger=logger)
     push_changes(repo_url=repo_url, slack_webhook_url=slack_errors_webhook_url, logger=logger)
 
     failed_triggered_jobs = {}
