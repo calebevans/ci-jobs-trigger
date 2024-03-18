@@ -8,6 +8,7 @@ from ci_jobs_trigger.libs.operators_iib_trigger.iib_trigger import (
     fetch_update_iib_and_trigger_jobs,
     upload_download_s3_bucket_file,
     verify_s3_or_local_file,
+    get_new_iib,
 )
 
 LOGGER = get_logger("test_operators_iib_trigger")
@@ -21,8 +22,8 @@ class MockRequestGet:
                 {
                     "msg": {
                         "index": {
-                            "ocp_version": "4.15",
-                            "index_image": "iib:quay.io/index-image",
+                            "ocp_version": "v4.15",
+                            "index_image": "iib:quay.io/iib:690654",
                         }
                     }
                 }
@@ -48,6 +49,14 @@ def base_config_dict():
         "jenkins_username": "user",
         "jenkins_url": "https://jenkins",
     }
+
+
+@pytest.fixture()
+def get_new_iib_config_dict(tmp_path, config_dict):
+    tmpfile = tmp_path / "iib-test.json"
+    tmpfile.touch()
+    config_dict["local_operators_latest_iib_filepath"] = tmpfile
+    return config_dict
 
 
 @pytest.fixture()
@@ -145,3 +154,18 @@ def test_upload_missing_file_from_s3_bucket(s3_client_mock):
         boto_s3_client=s3_client_mock,
         slack_errors_webhook_url=None,
     )
+
+
+def test_get_new_iib(mocker, tmp_path, get_new_iib_config_dict):
+    mocker.patch.object(requests, "get", return_value=MockRequestGet())
+    new_data = get_new_iib(config_data=get_new_iib_config_dict, logger=LOGGER)
+    expected_data = {
+        "v4.15": {
+            "openshift-ci-job-name": {
+                "operators": {"operator": {"new-iib": True, "iib": "iib:quay.io/iib:690654"}},
+                "ci": "openshift-ci",
+            }
+        },
+        "v4.16": {"jenkins-job-name": {"operators": {"operator": {"new-iib": False}}, "ci": "jenkins"}},
+    }
+    assert new_data == expected_data
