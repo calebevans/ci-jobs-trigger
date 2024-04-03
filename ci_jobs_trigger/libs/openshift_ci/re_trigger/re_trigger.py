@@ -26,6 +26,7 @@ class JobTriggering:
         self.trigger_url = GANGWAY_API_URL
         self.build_id = self.hook_data.get("build_id")
         self.job_name = self.hook_data.get("job_name")
+        self.job_is_rehearsal = 'rehearse' in self.job_name
         self.prow_job_id = self.hook_data.get("prow_job_id")
         self.slack_webhook_url = self.hook_data.get("slack_webhook_url")
         self.slack_errors_webhook_url = self.hook_data.get("slack_errors_webhook_url")
@@ -74,20 +75,21 @@ class JobTriggering:
 
             raise OpenshiftCiReTriggerError(log_prefix=self.log_prefix, msg=err_msg)
 
-        tests_dict = self.get_testsuites_testcase_from_junit_operator(
-            junit_xml=self.get_tests_from_junit_operator_by_build_id()
-        )
-        if self.is_build_failed_on_setup(tests_dict=tests_dict):
-            prow_job_id = self._trigger_job()
-            send_slack_message(
-                message=f"{self.slack_msg_prefix}Job failed during `pre phase`, re-triggering job",
-                webhook_url=self.slack_webhook_url,
-                logger=self.logger,
+        if not self.job_is_rehearsal:
+            tests_dict = self.get_testsuites_testcase_from_junit_operator(
+                junit_xml=self.get_tests_from_junit_operator_by_build_id()
             )
+            if self.is_build_failed_on_setup(tests_dict=tests_dict):
+                prow_job_id = self._trigger_job()
+                send_slack_message(
+                    message=f"{self.slack_msg_prefix}Job failed during `pre phase`, re-triggering job",
+                    webhook_url=self.slack_webhook_url,
+                    logger=self.logger,
+                )
 
-            with DB(job_db_path=job_db_path) as database:
-                database.write(job_name=self.job_name, prow_job_id=prow_job_id)
-                self.logger.info(f"{self.log_prefix} Save job data to DB")
+                with DB(job_db_path=job_db_path) as database:
+                    database.write(job_name=self.job_name, prow_job_id=prow_job_id)
+                    self.logger.info(f"{self.log_prefix} Save job data to DB")
 
         return True
 
