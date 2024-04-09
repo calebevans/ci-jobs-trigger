@@ -13,7 +13,25 @@ LOGGER = get_logger("test_zstream_trigger")
 
 LIBS_ZSTREAM_TRIGGER_PATH = "ci_jobs_trigger.libs.openshift_ci.ztream_trigger.zstream_trigger"
 GET_ACCEPTED_CLUSTER_VERSIONS_PATH = "ocp_utilities.cluster_versions.get_accepted_cluster_versions"
-TRIGGER_JOBS_PATH = f"{LIBS_ZSTREAM_TRIGGER_PATH}.trigger_jobs"
+TRIGGER_JOBS_PATH = f"{LIBS_ZSTREAM_TRIGGER_PATH}.openshift_ci_trigger_job"
+
+
+pytestmark = pytest.mark.usefixtures("send_slack_message_mock")
+
+
+@pytest.fixture
+def job_trigger_and_get_versions_mocker(mocker):
+    mocker.patch(
+        GET_ACCEPTED_CLUSTER_VERSIONS_PATH,
+        return_value=VERSIONS,
+    )
+    openshift_ci_trigger_job_mocker = mocker.patch(TRIGGER_JOBS_PATH)
+    openshift_ci_trigger_job_mocker.ok = True
+
+
+@pytest.fixture
+def send_slack_message_mock(mocker):
+    return mocker.patch(f"{LIBS_ZSTREAM_TRIGGER_PATH}.send_slack_message", return_value=None)
 
 
 @pytest.fixture()
@@ -61,33 +79,27 @@ def test_process_and_trigger_jobs_config_with_empty_version(config_dict_empty_ve
     assert not process_and_trigger_jobs(config_dict=config_dict_empty_version, logger=LOGGER)
 
 
-def test_process_and_trigger_jobs(mocker, config_dict):
-    mocker.patch(
-        GET_ACCEPTED_CLUSTER_VERSIONS_PATH,
-        return_value=VERSIONS,
-    )
-    mocker.patch(TRIGGER_JOBS_PATH, return_value=True)
+def test_process_and_trigger_jobs(config_dict, job_trigger_and_get_versions_mocker):
     assert process_and_trigger_jobs(config_dict=config_dict, logger=LOGGER)
 
 
-def test_process_and_trigger_jobs_already_triggered(mocker, config_dict):
-    mocker.patch(
-        GET_ACCEPTED_CLUSTER_VERSIONS_PATH,
-        return_value=VERSIONS,
-    )
-    mocker.patch(TRIGGER_JOBS_PATH, return_value=False)
+def test_process_and_trigger_jobs_already_triggered(mocker, config_dict, job_trigger_and_get_versions_mocker):
     mocker.patch(
         f"{LIBS_ZSTREAM_TRIGGER_PATH}.processed_versions_file",
-        return_value={"4.13": ["4.13.34"]},
+        return_value={"4.13": ["4.13.39"]},
     )
 
     assert not process_and_trigger_jobs(config_dict=config_dict, logger=LOGGER)
 
 
-def test_process_and_trigger_jobs_set_version(mocker, config_dict):
+def test_process_and_trigger_jobs_new_version(mocker, config_dict, job_trigger_and_get_versions_mocker):
     mocker.patch(
-        GET_ACCEPTED_CLUSTER_VERSIONS_PATH,
-        return_value=VERSIONS,
+        f"{LIBS_ZSTREAM_TRIGGER_PATH}.processed_versions_file",
+        return_value={"4.13": ["4.13.34"]},
     )
-    mocker.patch(TRIGGER_JOBS_PATH, return_value=True)
+
+    assert process_and_trigger_jobs(config_dict=config_dict, logger=LOGGER)
+
+
+def test_process_and_trigger_jobs_set_version(config_dict, job_trigger_and_get_versions_mocker):
     assert process_and_trigger_jobs(version="4.13", config_dict=config_dict, logger=LOGGER)
