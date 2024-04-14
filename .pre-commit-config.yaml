@@ -56,6 +56,4 @@ repos:
     rev: v1.9.0
     hooks:
       - id: mypy
-        exclude: ^(tests/)
-        include: ci_jobs_trigger/libs/openshift_ci/ztream_trigger
         additional_dependencies: [types-all]
