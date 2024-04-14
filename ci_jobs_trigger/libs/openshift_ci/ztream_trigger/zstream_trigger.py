@@ -2,6 +2,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from pyhelper_utils.general import tts
 from typing import Dict, List
 
 from ocp_utilities.cluster_versions import get_accepted_cluster_versions
@@ -162,9 +163,15 @@ def process_and_trigger_jobs(logger: logging.Logger, version: str | None = None)
 def monitor_and_trigger(logger: logging.Logger) -> None:
     while True:
         try:
+            _config = get_config(
+                os_environ=OPENSHIFT_CI_ZSTREAM_TRIGGER_CONFIG_OS_ENV_STR,
+                logger=logger,
+            )
+            run_interval = _config.get("run_interval", "24h")
+
             process_and_trigger_jobs(logger=logger)
-            logger.info(f"{LOG_PREFIX} Sleeping for {int(DAYS_TO_SECONDS / 3600)} hours")
-            time.sleep(DAYS_TO_SECONDS)
+            logger.info(f"{LOG_PREFIX} Sleeping for {run_interval}...")
+            time.sleep(tts(ts=run_interval))
 
         except Exception as ex:
             logger.warning(f"{LOG_PREFIX} Error: {ex}")
